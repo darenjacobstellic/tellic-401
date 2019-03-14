@@ -66,6 +66,10 @@ read_pdf() {
   done
 }
 
+clean_up() {
+  echo "INFO - Removing Tar File ${tar_file_name}"
+  rm -rf ${tmp_dir}
+}
 
 main() {
 # Get a list of files
@@ -76,6 +80,7 @@ main() {
   do
     extract_tar
     read_pdf
+    clean_up
   done
 }
 
