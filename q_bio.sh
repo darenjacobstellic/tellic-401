@@ -5,45 +5,77 @@ PROJECT='tellic-dev'
 BUCKET_NAME='tellic-dev'
 TELLIC_DIR='tellic-arxiv/pdf'
 PROCESSED_FILES='processed_files.txt'
+TAR_TXT='### PROCESSED_TAR ###'
+PDF_TXT='### PROCESSED_PDF ###'
 
 create_process_file() {
-
-  if ! [ -f ${processed_files} ]; then
-    touch ${processed_files}
+  if ! [ -f ${PROCESSED_FILES} ]; then
+    echo "INFO - Creating Process File ${PROCESSED_FILES}"
+    touch ${PROCESSED_FILES}
+    echo  ${TAR_TXT} > ${PROCESSED_FILES}
+    echo  ${PDF_TXT} >> ${PROCESSED_FILES}
+  else
+    processed_files_content=$(cat ${PROCESSED_FILES})
   fi
-  echo "***PROCESSED_PDFS"
-  echo "***PROCESSED_TARS"
-
 }
 
-extract_tar()
-{
-  # get tar file
-  tmp_dir=$(mktemp -d)
-  echo "Extracting file: ${file}"
-  gsutil cp ${file} ${tmp_dir}
-  exit
+extract_tar() {
+
+  tar_file_name=$(echo "${tar_file}" | awk -F "/" '{print $NF}')
+  if ! [[ "${processed_files_content}" =~ "${tar_file_name}" ]]; then
+    echo "INFO - extracting tar file ${tar_file_name}"
+    tmp_dir=$(mktemp -d)
+    echo "Extracting file: ${tar_file}"
+    gsutil cp ${tar_file} ${tmp_dir}
+    sed -i "/${TAR_TXT}/a ${tar_file_name}" ${PROCESSED_FILES}
+    tar xvf ${tmp_dir}/${tar_file_name} -C ${tmp_dir}
+  else
+    echo "INFO - Tar File ${tar_file_name} already processed"
+  fi
 }
 
 
 # Read PDF
 read_pdf() {
 
-  if [ "${file}" =~ ${processed_files} ]; then
-    echo "File ${file} already processed"
-  fi
+  # Create a list of pdf files
+  pdf_file_list=$(find ${tmp_dir} -name "*.pdf")
+  for pdf_file in ${pdf_file_list}
+  do
+    pdf_file_name=$(echo "${pdf_file}" | awk -F "/" '{print $NF}')
 
-  text=$(pdf2text.py ${file})
-  if ["q-bio" =~ ${text}]; then
-    echo ${text} >> ${file}\t${text}
-    echo "${file}\n" >> q-bio_files.txt
-  fi
+    # If the pdf file has not be processed process it
+    if ! [[ "${processed_files_content}" =~ "${pdf_file_name}" ]]; then
+      echo "INFO - Processing ${pdf_file_name}"
+      text=$(python pdf2text.py ${pdf_file})
+
+      # Check for q-bio string in PDF file
+      if ! [[ ${text} =~ "q-bio" ]]; then
+        echo "INFO - ${pdf_file_name} has q bio content"
+        echo "==== TAR_FILE: ${tar_file_name}\n ==== PDF_FILE: ${pdf_file_name}\n ==== BODY: ${text}" >> Q-BIO-TEXT.txt
+        exit
+      fi
+
+    echo "INFO - Processing complete ${pdf_file_name}"
+    sed -i "/${PDF_TXT}/a ${pdf_file_name}" ${PROCESSED_FILES}
+    else
+      echo "INFO - PDF File ${pdf_file_name} already processed"
+    fi
+    exit
+  done
 }
 
-# Get a list of files
-file_list=$(gsutil ls gs://${BUCKET_NAME}/${TELLIC_DIR})
 
-for file in ${file_list}
-do
-  extract_tar
-done
+main() {
+# Get a list of files
+  tar_file_list=$(gsutil ls gs://${BUCKET_NAME}/${TELLIC_DIR})
+  create_process_file
+
+  for tar_file in ${tar_file_list}
+  do
+    extract_tar
+    read_pdf
+  done
+}
+
+main
