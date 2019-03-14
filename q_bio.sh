@@ -50,17 +50,19 @@ read_pdf() {
       text=$(python pdf2text.py ${pdf_file})
 
       # Check for q-bio string in PDF file
-      if ! [[ ${text} =~ "q-bio" ]]; then
+      lower_text=$(echo "$text" | awk '{print tolower($0)}')
+      if [[ ${lower_text} =~ "q-bio" || ${lower_text} =~ "q bio" ]]; then
         echo "INFO - ${pdf_file_name} has q bio content"
-        echo "==== TAR_FILE: ${tar_file_name}\n ==== PDF_FILE: ${pdf_file_name}\n ==== BODY: ${text}" >> Q-BIO-TEXT.txt
-        exit
+        echo -e "==== TAR_FILE:\n ${tar_file_name}\n ==== PDF_FILE:\n ${pdf_file_name}\n ==== BODY:\n ${text}" >> Q-BIO-TEXT.txt
+        echo -e "==== TAR_FILE:\n ${tar_file_name}\n ==== PDF_FILE:\n ${pdf_file_name}\n" >> Q-BIO-FILES.txt
       fi
 
-    echo "INFO - Processing complete ${pdf_file_name}"
-    sed -i "/${PDF_TXT}/a ${pdf_file_name}" ${PROCESSED_FILES}
     else
       echo "INFO - PDF File ${pdf_file_name} already processed"
     fi
+
+    echo "INFO - Processing complete ${pdf_file_name}"
+    sed -i "/${PDF_TXT}/a ${pdf_file_name}" ${PROCESSED_FILES}
     exit
   done
 }
