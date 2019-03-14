@@ -63,7 +63,6 @@ read_pdf() {
 
     echo "INFO - Processing complete ${pdf_file_name}"
     sed -i "/${PDF_TXT}/a ${pdf_file_name}" ${PROCESSED_FILES}
-    exit
   done
 }
 
